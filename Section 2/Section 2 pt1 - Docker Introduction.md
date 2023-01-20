@@ -168,6 +168,12 @@ Remove all stopped containers:
 docker container prune
 ```
 
+You can chain multiple container IDs for container operations:
+```sh
+docker stop 2d 6b
+```
+- stops two containers in one command, faster to write
+
 # Docker System
 
 Show Docker's disk usage:

@@ -63,5 +63,116 @@ A quick **(but not ideal!)** way of getting the communication working is:
   docker run -d -p 8100:8100 --env CURRENCY_EXCHANGE_SERVICE_HOST=http://currency-exchange --name currency-conversion --link currency-exchange in28min/currency-conversion:0.0.1-RELEASE
   ```
 
+> It is a good idea to name your containers -- to reference them more easily when handling links between them such as this.
+
 ## The recommended way of connecting two microservices
 
+- networking on Host instead of Bridge is another option for connecting two containers directly, however... 
+- it is not supported on Docker Desktop (Windows, Mac...), only on host machines with Linux
+  
+With this option unavailable, we can **create a new network** for the two microservice containers:
+```sh
+docker network create currency-network
+```
+
+Afterwards, we only need to specify this new network for both containers:
+```
+docker run -d -p 8000:8000 --name currency-exchange --network=currency-network in28min/currency-exchange:0.0.1-RELEASE
+```
+
+```
+docker run -d -p 8100:8100 --env CURRENCY_EXCHANGE_SERVICE_HOST=http://currency-exchange --name currency-conversion --network=currency-network in28min/currency-conversion:0.0.1-RELEASE
+```
+- the currency conversion container keeps the environment variable CURRENCY_EXCHANGE_SERVICE_HOST, which determines the host to which it should send http requests
+
+# Docker Compose
+
+We saw in the previous steps that launching these containers has become rather difficult. Docker Compose solves this problem by letting us set up a static file that sets up the network and both containers at once.
+
+- Docker Compose is part of Docker Desktop, but not part of the CLI-only release for Linux.
+
+We can create a **docker-compose.yaml** file out of the two container commands and the network command above:
+```yaml
+version: '3.7'
+services:
+# docker run -d -p 8000:8000 
+# --name currency-exchange --network=currency-network 
+# in28min/currency-exchange:0.0.1-RELEASE
+  currency-exchange:
+    image: in28min/currency-exchange:0.0.1-RELEASE
+    ports:
+      - "8000:8000"
+    restart: always
+    networks:
+      - currency-compose-network
+
+# docker run -d -p 8100:8100
+# --env CURRENCY_EXCHANGE_SERVICE_HOST=http://currency-exchange 
+# --name currency-conversion --network=currency-network 
+# in28min/currency-conversion:0.0.1-RELEASE
+  currency-conversion:
+    image: in28min/currency-conversion:0.0.1-RELEASE
+    ports:
+      - "8100:8100"
+    restart: always
+    environment:
+      CURRENCY_EXCHANGE_SERVICE_HOST: http://currency-exchange
+    depends_on:
+      - currency-exchange
+    networks:
+      - currency-compose-network
+  
+# Networks to be created to facilitate communication between containers
+networks:
+  currency-compose-network:
+```
+
+- The services are our containers and can be microservices, but also databases and other services we may want to use
+- This means that this service will only start if currency-exchange launches successfully:
+  ```yaml
+  depends_on:
+      - currency-exchange
+  ```
+- The name of the network will be prepended with the name of the folder in which the **docker-compose.yaml** is located
+- in this case: **microservices_currency-compose-network**
+
+Checking docker-compose:
+```sh
+docker-compose --version
+```
+- ```
+  Docker Compose version v2.15.1
+  ```
+
+Running the docker-compose:
+```sh
+docker-compose up (-d)
+```
+
+Stop and remove the containers and network:
+```sh
+docker-compose down
+```
+
+## Extra commands
+
+See events happening in docker-compose, similarly to "docker system events":
+```sh
+docker-compose events
+```
+
+See the docker-compose.yaml file,  or get warned of any errors present therein:
+```sh
+docker-compose config
+```
+
+Other commands familiar from regular container use:
+
+```
+docker-compose ps
+docker-compose top
+docker-compose pause
+docker-compose unpause
+docker-compose stop
+docker-compose kill
+```
