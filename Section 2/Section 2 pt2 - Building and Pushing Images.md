@@ -91,6 +91,8 @@ ENTRYPOINT ["sh", "-c", "java -jar /hello-world-java.jar"]
    ```
    - the difference from ENTRYPOINT or CMD is that those commands don't commit the result as a new layer on the image
 
+More on multi-stage builds: https://docs.docker.com/build/building/multi-stage/
+
 # Building Efficient Docker Images
 
 Separating the dependencies and code into different layers on the image:
