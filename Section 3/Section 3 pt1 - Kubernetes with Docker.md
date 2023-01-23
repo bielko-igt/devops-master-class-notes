@@ -123,6 +123,14 @@ kubectl get service
 
 - "-o wide" provides slightly more information on all get types above
 
+---
+
+Sort all events by creation time:
+```
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+
 Kubernetes uses the **One Responsibility Principle**: once concept - one responsibility.
 
 # Pods
@@ -203,3 +211,62 @@ kubectl describe pod <>
   - labels are important for tying up pod with replicaset or service
 
 # ReplicaSets
+
+ReplicaSets ensure that **a specific number of pods are running at all times.**
+
+```
+kubectl get replicaset
+kubectl get replicasets
+kubectl get rs
+```
+- ```
+  NAME                              DESIRED   CURRENT   READY   AGE
+  hello-world-rest-api-569c4879d9   1         1         1       154m
+  ```
+
+- if wel kill the currently runnning container instance, the ReplicaSet is what replaces it with a fresh instance, to fill the desired number of instances running at once.
+- increasing instances:
+    ```
+    kubectl scale deployment hello-world-rest-api --replicas=3
+    ```
+
+  - when we then do "kubectl get pods", we can see all three pods (replicas) deployed
+
+# Deployment
+
+What if we want zero downtime? We can achieve this with deployment. It ensures no hitch in the uptime while deploying changes to pods.
+
+Show ReplicaSet, including the image it is tied to:
+```
+kubectl get rs -o wide
+```
+
+Redeploy all instances in the ReplicaSet with a different image... but the image is intentionally invalid:
+
+```
+kubectl set image deployment hello-world-rest-api hello-world-rest-api=DUMMY_IMAGE:TEST
+```
+(the name is here twice because the first one is the deployment, the second is the name of the container in that deployment)
+
+When we do this, the deployment gets updated, but the instances keep running and nothing is wrong.
+The reason for this is that:
+- the updated deployment tries to get ready, but as it never does, the original deployment (3 different instances) still keep running
+- in **kubectl get pods**, we can see that the status of the pod of the new deployment is "InvalidImageName"
+
+## Properly redeploy ReplicaSet:
+```
+kubectl set image deployment hello-world-rest-api hello-world-rest-api=in28min/hello-world-rest-api:0.0.2.RELEASE
+```
+
+The process:
+- the v2 ReplicaSet gets one instance up and running
+- it running means it can scale down v1 from 3 to 2 pods
+- it then adds more pods to v2 and removes pods from v1 until v2 replaces v1
+- this way, there are always 3 currently running instances
+
+# Services
+
+An example service is the LoadBalancer, a service that gets created when we expose the port of a deployment.
+It balances the load of the different instances behind a single, static IP.
+
+At the same time, there is a **ClusterIP** service created (with the name kubernetes). This is an internal only service, only available inside the cluster.
